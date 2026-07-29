@@ -7,9 +7,9 @@ NumPy, SciPy, Matplotlib
 
 ## Installation
 Clone the repo and install the dependencies:
-    git clone https://github.com/Ham1shP/monte-carlo-option-pricing
+    git clone https://github.com/Ham1shP/monte-carlo-option-pricing.git
     cd monte-carlo-option-pricing
-pip install -r requirements.txt
+    pip install -r requirements.txt
 
 ## Using it
 Run the script:

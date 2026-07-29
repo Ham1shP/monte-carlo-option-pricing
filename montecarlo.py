@@ -24,7 +24,6 @@ def black_scholes_euro_call(S0, K, r, sigma, T):
     N = norm.cdf
     return S0*N(d1) - K*np.exp(-r*T)*N(d2)
 
-# %%
 x = np.linspace(50, 150, 10)
 y = np.array([euro_call(100, k, 0.05, 0.2, 1, 100000) for k in x])
 plt.plot(x, y, label = 'Monte Carlo Simulation')
@@ -32,4 +31,3 @@ plt.xlabel('Strike Price')
 plt.ylabel('Option Price')
 plt.legend()
 plt.show()
-# %%

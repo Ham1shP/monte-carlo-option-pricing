@@ -35,7 +35,6 @@ plt.show()
 #This all plots the option price against the strike price using the Monte Carlo method.
 
 #Now to create a 95% confidence interval. 
-
 def confidence_interval(S0, K, r, sigma, T, N):
     Z = np.random.normal(0, 1, N) #Generates N standard normal variables. 
     S_t = S0*np.exp((r - 0.5*sigma**2)*T + sigma*Z*np.sqrt(T)) #Calculates the price on expiry.

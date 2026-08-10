@@ -65,3 +65,24 @@ for i in range(b):
     if low <= blackscholesprice <= high: #Tests if the Black-Scholes answer is in our confidence interval.
         a += 1
 print(a/b) #We would expect this to be around 0.95.
+
+#I am now going to reduce the variance of the error using antithetic variates.
+
+def euro_call_antithetic(S0, K, r, sigma, T, N):
+    Z = np.random.normal(0, 1, N // 2) #Generates half as many standard normal random variables
+    Z = np.concatenate((Z, -Z)) #Uses antithetic variates to reduce variance
+
+    S_t = S0*np.exp((r - 0.5*sigma**2)*T + sigma*Z*np.sqrt(T)) #Calculates the price on expiry of all N simulations
+    payoff = np.maximum(S_t - K, 0) #Calculates the payoff for each simulation
+    return np.exp(-r*T)*np.mean(payoff) #Discounts the mean payoff
+
+#We will now compare empirically the standard error of the Monte Carlo simulation with the antithetic correction.
+
+plain = np.array([euro_call(100, 100, 0.05, 0.2, 1, 100000) for i in range(500)])
+antithetic = np.array([euro_call_antithetic(100, 100, 0.05, 0.2, 1, 100000) for i in range(500)])
+
+print('plain std: ', plain.std(ddof=1))
+print('antithetic std: ', antithetic.std(ddof=1))
+print('variance ratio: ', plain.var() / antithetic.var())
+#This shows that the antithetic variates method reduces the variance of the Monte Carlo simulation, 
+#and so means that we can use ~2.029 times fewer simulations to achieve the same accuracy.

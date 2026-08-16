@@ -26,6 +26,7 @@ So far, I have used the vanilla pricing method with Monte Carlo simulation and t
 ![Plot showing option price against strike price](option_price_vs_strike_price.png)
 
 I have then used antithetic variates to reduce the variance of the method, which then means that we need ~2.03 times fewer simulations for the same accuracy in running the program. 
+Control variates are another way to reduce the variance of this method. By using control variates, I showed that you need ~6.95 times fewer simulations to get the same variance. 
 
 ## Author
 Hamish Paisley

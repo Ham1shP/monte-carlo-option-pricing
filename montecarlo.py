@@ -24,14 +24,15 @@ def black_scholes_euro_call(S0, K, r, sigma, T):
     N = norm.cdf
     return S0*N(d1) - K*np.exp(-r*T)*N(d2)
 
-x = np.linspace(50, 150, 10)
-y = np.array([euro_call(100, k, 0.05, 0.2, 1, 100000) for k in x])
-plt.plot(x, y, label = 'Monte Carlo Simulation')
-plt.xlabel('Strike Price')
-plt.ylabel('Option Price')
-plt.legend()
-plt.savefig('option_price_vs_strike_price.png', dpi = 150, bbox_inches = 'tight')
-plt.show()
+def option_vs_strike(S0, r, sigma, T, N):
+    x = np.linspace(50, 150, 10)
+    y = np.array([euro_call(S0, k, r, sigma, T, N) for k in x])
+    plt.plot(x, y, label = 'Monte Carlo Simulation')
+    plt.xlabel('Strike Price')
+    plt.ylabel('Option Price')
+    plt.legend()
+    plt.savefig('option_price_vs_strike_price.png', dpi = 150, bbox_inches = 'tight')
+    plt.show()
 #This all plots the option price against the strike price using the Monte Carlo method.
 
 #Now to create a 95% confidence interval. 
@@ -45,26 +46,29 @@ def confidence_interval(S0, K, r, sigma, T, N):
     return price, se, (low, high)
 
 #Now we want to plot the error against N.
-N_values = [10**k for k in range(2,7)]
-ses = [confidence_interval(100, 100, 0.05, 0.2, 1, N)[1] for N in N_values]
-plt.plot(N_values, ses, label = 'Standard Error')
-plt.xlabel('Number of simulations')
-plt.ylabel('Standard error')
-plt.xscale('log')
-plt.yscale('log')
-plt.legend()
-plt.savefig('standard_error_vs_simulations.png', dpi = 150, bbox_inches = 'tight')
-plt.show()
+def plot_error(S0, K, r, sigma, T):
+    N_values = [10**k for k in range(2,7)]
+    ses = [confidence_interval(S0, K, r, sigma, T, N)[1] for N in N_values]
+    plt.plot(N_values, ses, label = 'Standard Error')
+    plt.xlabel('Number of simulations')
+    plt.ylabel('Standard error')
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.legend()
+    plt.savefig('standard_error_vs_simulations.png', dpi = 150, bbox_inches = 'tight')
+    plt.show()
 
 #Now to check if our confidence interval is right.
-blackscholesprice = black_scholes_euro_call(100, 100, 0.05, 0.2, 1)
-a = 0
-b = 500
-for i in range(b):
-    price, se, (low, high) = confidence_interval(100, 100, 0.05, 0.2, 1, 10000)
-    if low <= blackscholesprice <= high: #Tests if the Black-Scholes answer is in our confidence interval.
-        a += 1
-print(a/b) #We would expect this to be around 0.95.
+
+def check_confidence_interval(S0, K, r, sigma, T, N):
+    blackscholesprice = black_scholes_euro_call(S0, K, r, sigma, T)
+    a = 0
+    b = 500
+    for i in range(b):
+        price, se, (low, high) = confidence_interval(100, 100, 0.05, 0.2, 1, 10000)
+        if low <= blackscholesprice <= high: #Tests if the Black-Scholes answer is in our confidence interval.
+            a += 1
+    print(a/b) #We would expect this to be around 0.95.
 
 #I am now going to reduce the variance of the error using antithetic variates.
 
@@ -77,12 +81,37 @@ def euro_call_antithetic(S0, K, r, sigma, T, N):
     return np.exp(-r*T)*np.mean(payoff) #Discounts the mean payoff
 
 #We will now compare empirically the standard error of the Monte Carlo simulation with the antithetic correction.
+def compare_variance(S0, K, r, sigma, T, N):
+    plain = np.array([euro_call(S0, K, r, sigma, 1, N) for i in range(500)])
+    antithetic = np.array([euro_call_antithetic(S0, K, r, sigma, T, N) for i in range(500)])
 
-plain = np.array([euro_call(100, 100, 0.05, 0.2, 1, 100000) for i in range(500)])
-antithetic = np.array([euro_call_antithetic(100, 100, 0.05, 0.2, 1, 100000) for i in range(500)])
-
-print('plain std: ', plain.std(ddof=1))
-print('antithetic std: ', antithetic.std(ddof=1))
-print('variance ratio: ', plain.var() / antithetic.var())
+    print('plain std: ', plain.std(ddof=1))
+    print('antithetic std: ', antithetic.std(ddof=1))
+    print('variance ratio: ', plain.var() / antithetic.var())
 #This shows that the antithetic variates method reduces the variance of the Monte Carlo simulation, 
 #and so means that we can use ~2.029 times fewer simulations to achieve the same accuracy.
+
+#Another method to reduce variance is using control vairates.
+#I will use S_t as a control variate, since we know its expected value (S0*exp(r*T)), and it is correlated with the payoff of the option.
+
+def euro_call_control_variate(S0, K, r, sigma, T, N):
+    Z = np.random.normal(0, 1, N) #Generates N standard normal random variables.
+    S_t = S0*np.exp((r - 0.5*sigma**2)*T + sigma*Z*np.sqrt(T)) #Calculates the price on expiry of all N simulations
+    disc_payoff = np.exp(-r*T)*np.maximum(S_t - K, 0) #Calculates the discounted payoff for each simulation
+    c = np.cov(disc_payoff, S_t)[0, 1] / np.cov(disc_payoff, S_t)[1,1] #Calculates the optimal value of c.
+    cv = disc_payoff - c*(S_t - S0*np.exp(r*T)) #This calculates the control variate.
+    return np.mean(cv), np.std(cv, ddof=1) / np.sqrt(N) #Returns the price and the standard error.
+
+def compare_variance_control_variate(S0, K, r, sigma, T, N):
+    plain = np.array([euro_call(S0, K, r, sigma, T, N) for i in range(500)]) #Computes the regular Monte Carlo simulation 500 times.
+    control_variate = np.array([euro_call_control_variate(S0, K, r, sigma, T, N)[0] for i in range(500)]) #Uses the control variate method 500 times
+
+    print('plain std: ', plain.std(ddof=1))
+    print('control variate std: ', control_variate.std(ddof=1))
+    print('variance ratio: ', plain.var() / control_variate.var()) #Shows how much the variance has been reduced with control variates. 
+
+#By using control variates, we can reduce the variance of the Monte Carlo simulation by around 6.95 times. 
+#This means that we can use ~6.95 times fewer simulations to achieve the same accuracy.
+#This is clearly much more efficient than using antithetic variates. 
+#If we were pricing something without a closed form solution, such as an Asian option, we could use the control variate method.
+#This would be with the European Call as the control variate, as we know its exact solution from Black-Scholes.

@@ -82,7 +82,7 @@ def euro_call_antithetic(S0, K, r, sigma, T, N):
 
 #We will now compare empirically the standard error of the Monte Carlo simulation with the antithetic correction.
 def compare_variance(S0, K, r, sigma, T, N):
-    plain = np.array([euro_call(S0, K, r, sigma, 1, N) for i in range(500)])
+    plain = np.array([euro_call(S0, K, r, sigma, T, N) for i in range(500)])
     antithetic = np.array([euro_call_antithetic(S0, K, r, sigma, T, N) for i in range(500)])
 
     print('plain std: ', plain.std(ddof=1))
@@ -115,3 +115,52 @@ def compare_variance_control_variate(S0, K, r, sigma, T, N):
 #This is clearly much more efficient than using antithetic variates. 
 #If we were pricing something without a closed form solution, such as an Asian option, we could use the control variate method.
 #This would be with the European Call as the control variate, as we know its exact solution from Black-Scholes.
+
+#I now want to price an Asian option using Monte Carlo methods.
+
+def asian_call(S0, K, r, sigma, T, N, n):
+    dt = T/n
+    Z = np.random.normal(0, 1, (N, n)) #Generates N standard normal random variables
+    l = (r - 0.5*sigma**2)*dt + sigma*Z*np.sqrt(dt) #Calculates log returns for each time step
+    S = S0*np.exp(np.cumsum(l, axis=1)) #Each row is a path of the prices
+    S_avg = np.mean(S, axis = 1) #Calculates the average price for each path
+    payoff = np.maximum(S_avg - K, 0) #Calculates the payoff
+    return np.exp(-r*T)*np.mean(payoff) #Discounts the payoff and returns the price of the Asian option.
+
+#I am now going to check this Asian option pricer with n=1 against a European option, as these should be the same.
+
+def check_asian_call(S0, K, r, sigma, T, N):
+    diffs = np.array([asian_call(S0, K, r, sigma, T, N, 1) for _ in range(500)])
+    bs = black_scholes_euro_call(S0, K, r, sigma, T)
+    print((diffs - bs).mean())
+    print((diffs - bs).std())
+
+#These both look good (-0.0055 and 0.149), so the check has passed. 
+
+#I will now use control variates to reduce the variance.
+#I am going to use the European call as the control variate.
+
+def asian_call_control_variate(S0, K, r, sigma, T, N, n):
+    dt = T/n
+    Z = np.random.normal(0, 1, (N, n)) #Generates N standard normal random variables
+    l = (r - 0.5*sigma**2)*dt + sigma*Z*np.sqrt(dt) #Calculates log returns for each time step
+    S = S0*np.exp(np.cumsum(l, axis=1)) #Each row is a path of the prices
+
+    Y = np.exp(-r*T)*np.maximum(np.mean(S, axis=1) - K, 0) #This calculates the discounted Asian payoff.
+    X = np.exp(-r*T)*np.maximum(S[:,-1] - K, 0) #This calculates the discounted European payoff
+    C_bs = black_scholes_euro_call(S0, K, r, sigma, T) #This calculates the known mean of X using the Black-Scholes formula.
+    c = np.cov(Y, X)[0, 1] / np.cov(Y, X)[1,1] #Calculates the optimal value of c
+    cv = Y - c*(X - C_bs) #This calculates the control variate.
+    return np.mean(cv), np.std(cv, ddof=1) / np.sqrt(N) #Returns the price and standard error
+
+#I'm now going to use the same check as I did before with European calls to see how much this has reduced the variance.
+
+def compare_variance_control_variate(S0, K, r, sigma, T, N, n):
+    plain = np.array([asian_call(S0, K, r, sigma, T, N, n) for i in range(500)]) #Computes the regular Monte Carlo Asian call simulation 500 times.
+    control_variate = np.array([asian_call_control_variate(S0, K, r, sigma, T, N, n)[0] for i in range(500)]) #Uses the control variate method 500 times
+
+    print('plain std: ', plain.std(ddof=1))
+    print('control variate std: ', control_variate.std(ddof=1))
+    print('variance ratio: ', plain.var() / control_variate.var()) #Shows how much the variance has been reduced with control variates. 
+
+compare_variance_control_variate(100, 100, 0.05, 0.2, 1, 10000, 52) #This shows that the variance has reduced by using control variates. 

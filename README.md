@@ -28,5 +28,7 @@ So far, I have used the vanilla pricing method with Monte Carlo simulation and t
 I have then used antithetic variates to reduce the variance of the method, which then means that we need ~2.03 times fewer simulations for the same accuracy in running the program. 
 Control variates are another way to reduce the variance of this method. By using control variates, I showed that you need ~6.95 times fewer simulations to get the same variance. 
 
+I have done the same thing for an Asian call option, and used control variates to reduce the variance. For n = 52, this reduced the variance by a factor of ~3.74.
+
 ## Author
 Hamish Paisley
